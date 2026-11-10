@@ -11,6 +11,8 @@
   var LS_TOKEN = 'filebox.token';
   var LS_DEVICE = 'filebox.device';
   var LS_REMEMBER = 'filebox.remember';
+  var LS_AUTOSYNC = 'filebox.autosync';
+  var SYNC_INTERVAL = 5000;
 
   var MAX_SIZE = 50 * 1024 * 1024;
   var WARN_SIZE = 25 * 1024 * 1024;
@@ -23,7 +25,10 @@
     queue: [],
     uploading: false,
     connected: false,
-    seq: 0
+    seq: 0,
+    inboxEtag: null,
+    autoSync: true,
+    syncTimer: null
   };
 
   var els = {};
@@ -36,13 +41,15 @@
       'setupError', 'settingsBtn', 'searchInput', 'refreshBtn', 'dropzone', 'fileInput', 'queueCard',
       'queueList', 'clearQueueBtn', 'fileList', 'fileCount', 'emptyState', 'toast', 'devicePill',
       'textInput', 'textCount', 'sendTextBtn', 'clearTextBtn', 'viewer', 'viewerTitle', 'viewerBody',
-      'viewerCopy', 'viewerClose'
+      'viewerCopy', 'viewerClose', 'autoSyncInput', 'syncState'
     ].forEach(function (id) { els[id] = $(id); });
 
     state.device = normalizeDevice(localStorage.getItem(LS_DEVICE) || defaultDevice());
     els.deviceInput.value = state.device;
     els.devicePill.textContent = '本机标签：' + state.device;
     els.rememberInput.checked = localStorage.getItem(LS_REMEMBER) !== '0';
+    state.autoSync = localStorage.getItem(LS_AUTOSYNC) !== '0';
+    els.autoSyncInput.checked = state.autoSync;
 
     bindEvents();
     updateTextCount();
@@ -107,6 +114,24 @@
       els.textInput.value = '';
       updateTextCount();
       els.textInput.focus();
+    });
+    els.autoSyncInput.addEventListener('change', function () {
+      state.autoSync = els.autoSyncInput.checked;
+      localStorage.setItem(LS_AUTOSYNC, state.autoSync ? '1' : '0');
+      if (state.autoSync) {
+        startAutoSync();
+        setSyncState('自动同步已开启', 'ok');
+      } else {
+        stopAutoSync();
+        setSyncState('自动同步已关闭', '');
+      }
+    });
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden && state.connected && state.autoSync) {
+        clearTimeout(state.syncTimer);
+        state.syncTimer = null;
+        syncTick();
+      }
     });
     els.viewerClose.addEventListener('click', closeViewer);
     els.viewerCopy.addEventListener('click', copyViewerContent);
@@ -271,17 +296,26 @@
   }
 
   function listFiles() {
-    return gh('/repos/' + OWNER + '/' + REPO + '/contents/' + INBOX + '?ref=' + BRANCH)
-      .then(function (data) {
+    var url = API + '/repos/' + OWNER + '/' + REPO + '/contents/' + INBOX + '?ref=' + BRANCH;
+    return fetch(url, {
+      headers: authHeaders({ 'Accept': 'application/vnd.github+json' }),
+      cache: 'no-store'
+    }).then(function (res) {
+      if (res.status === 404) {
+        state.inboxEtag = null;
+        return [];
+      }
+      if (!res.ok) {
+        return readError(res).then(function (err) { throw err; });
+      }
+      state.inboxEtag = res.headers.get('ETag');
+      return res.json().then(function (data) {
         if (!Array.isArray(data)) return [];
         return data.filter(function (item) {
           return item.type === 'file' && item.name !== '.gitkeep';
         });
-      })
-      .catch(function (err) {
-        if (err.status === 404) return [];
-        throw err;
       });
+    });
   }
 
   function connect(auto) {
@@ -291,6 +325,7 @@
       return;
     }
     state.token = token;
+    stopAutoSync();
     els.connectBtn.disabled = true;
     setSetupError('');
     gh('/repos/' + OWNER + '/' + REPO).then(function () {
@@ -313,11 +348,15 @@
       els.setupCard.hidden = true;
       els.mainPanel.hidden = false;
       renderFiles();
+      startAutoSync();
+      setSyncState('自动同步中 · 每 5 秒', 'ok');
       toast('已连接：' + OWNER + '/' + REPO, 'ok');
     }).catch(function (err) {
       state.connected = false;
+      stopAutoSync();
       els.setupCard.hidden = false;
       els.mainPanel.hidden = true;
+      setSyncState('未连接', '');
       setSetupError(formatError(err));
       if (!auto) toast(formatError(err), 'err');
     }).then(function () {
@@ -330,9 +369,119 @@
     listFiles().then(function (files) {
       state.files = files;
       renderFiles();
+      setSyncState('已同步 · ' + timeString(), 'ok');
+      if (state.autoSync) { startAutoSync(); }
       if (!silent) toast('已刷新', 'ok');
     }).catch(function (err) {
+      setSyncState('刷新失败', 'err');
       toast(formatError(err), 'err');
+    });
+  }
+
+  /* ---------- 自动同步（近实时） ---------- */
+
+  function timeString() {
+    var d = new Date();
+    return pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+  }
+
+  function setSyncState(text, kind) {
+    if (!els.syncState) { return; }
+    els.syncState.textContent = text;
+    els.syncState.className = 'sync-state' + (kind ? ' ' + kind : '');
+  }
+
+  function stopAutoSync() {
+    if (state.syncTimer) {
+      clearTimeout(state.syncTimer);
+      state.syncTimer = null;
+    }
+  }
+
+  function startAutoSync() {
+    stopAutoSync();
+    if (!state.connected || !state.autoSync) { return; }
+    scheduleSync(SYNC_INTERVAL);
+  }
+
+  function scheduleSync(delay) {
+    if (!state.connected || !state.autoSync) { return; }
+    clearTimeout(state.syncTimer);
+    state.syncTimer = setTimeout(syncTick, delay);
+  }
+
+  function fetchInboxDelta() {
+    var url = API + '/repos/' + OWNER + '/' + REPO + '/contents/' + INBOX + '?ref=' + BRANCH;
+    var headers = authHeaders({ 'Accept': 'application/vnd.github+json' });
+    if (state.inboxEtag) { headers['If-None-Match'] = state.inboxEtag; }
+    return fetch(url, { headers: headers, cache: 'no-store' }).then(function (res) {
+      if (res.status === 304) {
+        return { notModified: true, files: [] };
+      }
+      if (res.status === 404) {
+        state.inboxEtag = null;
+        return { notModified: false, files: [], etag: null };
+      }
+      if (!res.ok) {
+        return readError(res).then(function (err) { throw err; });
+      }
+      var etag = res.headers.get('ETag');
+      return res.json().then(function (data) {
+        var files = Array.isArray(data) ? data.filter(function (item) {
+          return item.type === 'file' && item.name !== '.gitkeep';
+        }) : [];
+        return { notModified: false, files: files, etag: etag };
+      });
+    });
+  }
+
+  function fileSignature(files) {
+    return files.map(function (f) { return f.name + ':' + f.sha; }).join('|');
+  }
+
+  function handleSyncResult(result) {
+    if (result.notModified) {
+      setSyncState('已同步 · ' + timeString(), 'ok');
+      return;
+    }
+    state.inboxEtag = result.etag || null;
+    if (fileSignature(state.files) === fileSignature(result.files)) {
+      setSyncState('已同步 · ' + timeString(), 'ok');
+      return;
+    }
+    var oldNames = {};
+    state.files.forEach(function (f) { oldNames[f.name] = true; });
+    var added = result.files.filter(function (f) { return !oldNames[f.name]; });
+    state.files = result.files;
+    renderFiles();
+    if (added.length > 0) {
+      var names = added.slice(0, 3).map(function (f) { return displayName(f.name); }).join('、');
+      toast('同步到 ' + added.length + ' 个新条目：' + names + (added.length > 3 ? ' …' : ''), 'ok');
+      setSyncState('刚同步到新内容', 'ok');
+    } else {
+      setSyncState('列表已更新 · ' + timeString(), 'ok');
+    }
+  }
+
+  function syncTick() {
+    state.syncTimer = null;
+    if (!state.connected || !state.autoSync) { return; }
+    if (document.hidden) { return; }
+    fetchInboxDelta().then(function (result) {
+      handleSyncResult(result);
+      scheduleSync(SYNC_INTERVAL);
+    }).catch(function (err) {
+      if (err && err.status === 401) {
+        stopAutoSync();
+        state.autoSync = false;
+        els.autoSyncInput.checked = false;
+        localStorage.setItem(LS_AUTOSYNC, '0');
+        setSyncState('令牌失效，自动同步停止', 'err');
+        toast(formatError(err), 'err');
+        return;
+      }
+      setSyncState('同步失败，稍后重试', 'err');
+      scheduleSync(15000);
     });
   }
 
@@ -776,6 +925,11 @@
   }
 
   function clearToken() {
+    stopAutoSync();
+    state.autoSync = false;
+    els.autoSyncInput.checked = false;
+    localStorage.setItem(LS_AUTOSYNC, '0');
+    setSyncState('未连接', '');
     localStorage.removeItem(LS_TOKEN);
     localStorage.setItem(LS_REMEMBER, '0');
     els.tokenInput.value = '';

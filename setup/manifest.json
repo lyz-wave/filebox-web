@@ -45,5 +45,10 @@
     "web": "发送文字 / 剪贴板 输入框",
     "windows": "text.ps1",
     "unix": "text.sh"
+  },
+  "auto_sync": {
+    "web": true,
+    "interval_seconds": 5,
+    "note": "轮询 GitHub Contents API（ETag 条件请求），页面隐藏时暂停"
   }
 }

@@ -70,6 +70,11 @@
       <span class="pill subtle" id="devicePill">本机标签：—</span>
       <span class="spacer"></span>
       <input id="searchInput" class="search" type="search" placeholder="搜索文件…" autocomplete="off">
+      <label class="autosync" title="每 5 秒自动检查一次更新，切到后台时暂停">
+        <input type="checkbox" id="autoSyncInput" checked>
+        <span>自动同步</span>
+      </label>
+      <span class="sync-state" id="syncState">等待同步</span>
       <button class="btn ghost" type="button" id="refreshBtn">刷新</button>
     </div>
 
