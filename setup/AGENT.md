@@ -141,7 +141,7 @@ cd "$HOME/filebox" && ./send.sh /tmp/hello-filebox.txt
 brew install git gh
 gh auth login
 git clone https://github.com/lyz-wave/filebox.git "$HOME/filebox"
-cd "$HOME/filebox" && chmod +x send.sh recv.sh clean.sh
+cd "$HOME/filebox" && chmod +x send.sh recv.sh clean.sh text.sh
 ```
 
 ### Linux（Debian/Ubuntu 为例）
@@ -150,7 +150,7 @@ cd "$HOME/filebox" && chmod +x send.sh recv.sh clean.sh
 sudo apt-get update && sudo apt-get install -y git gh
 gh auth login
 git clone https://github.com/lyz-wave/filebox.git "$HOME/filebox"
-cd "$HOME/filebox" && chmod +x send.sh recv.sh clean.sh
+cd "$HOME/filebox" && chmod +x send.sh recv.sh clean.sh text.sh
 ```
 
 ---
