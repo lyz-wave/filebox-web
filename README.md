@@ -1,6 +1,6 @@
 # filebox-web · 网页投递箱
 
-filebox 的浏览器界面：**拖拽上传、列表、下载、删除**，数据直接读写私有仓库
+filebox 的浏览器界面：**拖拽上传、发送文字/剪贴板、列表、下载、删除**，数据直接读写私有仓库
 [lyz-wave/filebox](https://github.com/lyz-wave/filebox) 的 `inbox/`。
 
 页面地址：**https://lyz-wave.github.io/filebox-web/**
@@ -54,6 +54,13 @@ bash ./bootstrap.sh
 
 令牌默认只保存在本机浏览器 localStorage；不想保存就取消「记住令牌」，刷新后重填。
 
+## 发送文字 / 剪贴板
+
+页面顶部有「发送文字 / 剪贴板」输入框：粘贴网址、口令、验证码、一段备忘，点「发送文字」（Ctrl+Enter 也可以）。
+内容会保存成 `inbox/` 里的 `.txt` 文件（文件名带时间戳和设备名）；列表里 💬 图标的就是文字，点「查看」看全文，点「复制」直接进剪贴板。
+
+电脑命令行也可以发文字：` .\text.ps1 "文字"`（Windows）/ ` ./text.sh "文字"`（macOS/Linux）。
+
 ## 安全说明
 
 - 页面是公开的静态页面，不含任何文件数据；
@@ -64,6 +71,7 @@ bash ./bootstrap.sh
 
 ## 限制
 
+- 文字同样存成文件、走 Contents API；超长文字（几十万字）建议拆段；
 - 单文件建议 25MB 以内，页面硬上限 50MB（浏览器内存 + Contents API）；
 - 可以一次选多个文件，会按顺序上传，文件名自动加上时间戳和设备名；
 - 删除只影响当前版本，git 历史仍保留（和 `clean.ps1` 一致）；

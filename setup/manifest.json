@@ -40,5 +40,10 @@
     "permissions": {
       "Contents": "Read and write"
     }
+  },
+  "text_send": {
+    "web": "发送文字 / 剪贴板 输入框",
+    "windows": "text.ps1",
+    "unix": "text.sh"
   }
 }

@@ -34,7 +34,9 @@
   document.addEventListener('DOMContentLoaded', function () {
     ['setupCard', 'mainPanel', 'tokenInput', 'deviceInput', 'rememberInput', 'connectBtn', 'clearBtn',
       'setupError', 'settingsBtn', 'searchInput', 'refreshBtn', 'dropzone', 'fileInput', 'queueCard',
-      'queueList', 'clearQueueBtn', 'fileList', 'fileCount', 'emptyState', 'toast', 'devicePill'
+      'queueList', 'clearQueueBtn', 'fileList', 'fileCount', 'emptyState', 'toast', 'devicePill',
+      'textInput', 'textCount', 'sendTextBtn', 'clearTextBtn', 'viewer', 'viewerTitle', 'viewerBody',
+      'viewerCopy', 'viewerClose'
     ].forEach(function (id) { els[id] = $(id); });
 
     state.device = normalizeDevice(localStorage.getItem(LS_DEVICE) || defaultDevice());
@@ -43,6 +45,7 @@
     els.rememberInput.checked = localStorage.getItem(LS_REMEMBER) !== '0';
 
     bindEvents();
+    updateTextCount();
 
     var savedToken = localStorage.getItem(LS_TOKEN) || '';
     if (savedToken) {
@@ -94,6 +97,24 @@
     els.clearQueueBtn.addEventListener('click', function () {
       state.queue = state.queue.filter(function (item) { return item.status !== 'done'; });
       renderQueue();
+    });
+    els.textInput.addEventListener('input', updateTextCount);
+    els.textInput.addEventListener('keydown', function (ev) {
+      if ((ev.ctrlKey || ev.metaKey) && ev.key === 'Enter') { ev.preventDefault(); sendText(); }
+    });
+    els.sendTextBtn.addEventListener('click', sendText);
+    els.clearTextBtn.addEventListener('click', function () {
+      els.textInput.value = '';
+      updateTextCount();
+      els.textInput.focus();
+    });
+    els.viewerClose.addEventListener('click', closeViewer);
+    els.viewerCopy.addEventListener('click', copyViewerContent);
+    els.viewer.addEventListener('click', function (ev) {
+      if (ev.target === els.viewer) { closeViewer(); }
+    });
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape' && !els.viewer.hidden) { closeViewer(); }
     });
     window.addEventListener('dragover', function (ev) { ev.preventDefault(); });
     window.addEventListener('drop', function (ev) { ev.preventDefault(); });
@@ -155,6 +176,7 @@
   }
 
   function iconFor(name) {
+    if (isTextName(name)) { return '💬'; }
     var ext = String(name || '').split('.').pop().toLowerCase();
     var map = {
       pdf: '📄', txt: '📃', md: '📘', doc: '📝', docx: '📝', rtf: '📝',
@@ -356,7 +378,7 @@
       main.className = 'file-main';
       var title = document.createElement('span');
       title.className = 'file-title';
-      title.textContent = prettyName(f.name);
+      title.textContent = displayName(f.name);
       title.title = f.name;
       var meta = document.createElement('span');
       meta.className = 'file-meta';
@@ -367,17 +389,35 @@
 
       var actions = document.createElement('div');
       actions.className = 'file-actions';
-      var dl = document.createElement('button');
-      dl.type = 'button';
-      dl.className = 'btn ghost';
-      dl.textContent = '下载';
-      dl.addEventListener('click', function () { downloadFile(f); });
+
+      if (isTextName(f.name)) {
+        var copyBtn = document.createElement('button');
+        copyBtn.type = 'button';
+        copyBtn.className = 'btn ghost';
+        copyBtn.textContent = '复制';
+        copyBtn.addEventListener('click', function () { copyTextFile(f); });
+        actions.appendChild(copyBtn);
+
+        var viewBtn = document.createElement('button');
+        viewBtn.type = 'button';
+        viewBtn.className = 'btn ghost';
+        viewBtn.textContent = '查看';
+        viewBtn.addEventListener('click', function () { openViewer(f); });
+        actions.appendChild(viewBtn);
+      } else {
+        var dl = document.createElement('button');
+        dl.type = 'button';
+        dl.className = 'btn ghost';
+        dl.textContent = '下载';
+        dl.addEventListener('click', function () { downloadFile(f); });
+        actions.appendChild(dl);
+      }
+
       var del = document.createElement('button');
       del.type = 'button';
       del.className = 'btn danger';
       del.textContent = '删除';
       del.addEventListener('click', function () { deleteFile(f); });
-      actions.appendChild(dl);
       actions.appendChild(del);
 
       li.appendChild(icon);
@@ -423,6 +463,154 @@
       return refreshFiles(true);
     }).catch(function (err) {
       toast(formatError(err), 'err');
+    });
+  }
+
+  /* ---------- 文字 / 剪贴板 ---------- */
+
+  function updateTextCount() {
+    var n = String(els.textInput.value || '').length;
+    els.textCount.textContent = n ? (n + ' 字') : '0 字';
+  }
+
+  function textSnippet(value) {
+    var lines = String(value || '').split(/\r?\n/);
+    var first = '';
+    for (var i = 0; i < lines.length; i++) {
+      if (lines[i].trim().length > 0) { first = lines[i].trim(); break; }
+    }
+    var s = first.replace(/[\\/:*?"<>|\t]/g, '').replace(/\s+/g, '_');
+    s = s.replace(/^[._\-\s]+|[._\-\s]+$/g, '');
+    if (s.length > 24) { s = s.slice(0, 24); }
+    if (!s) { s = 'msg-' + pad2(new Date().getHours()) + pad2(new Date().getMinutes()) + pad2(new Date().getSeconds()); }
+    return s;
+  }
+
+  function isTextName(name) {
+    return /\.(txt|md|markdown|log|csv|tsv|json|ya?ml)$/i.test(String(name || ''));
+  }
+
+  function displayName(name) {
+    if (isTextName(name)) {
+      var t = prettyName(name).replace(/\.(txt|md|markdown|log|csv|tsv|json|ya?ml)$/i, '').replace(/^text-/, '');
+      return t || '文字';
+    }
+    return prettyName(name);
+  }
+
+  function sendText() {
+    if (!state.connected) { showSetup(); toast('请先填写令牌并连接仓库。', 'warn'); return; }
+    var text = String(els.textInput.value || '');
+    if (!text.trim()) { toast('请先输入文字。', 'warn'); return; }
+    if (text.length > 200000) { toast('文字太长（超过 20 万字），请拆成几段再发。', 'err'); return; }
+
+    var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    var base = 'text-' + textSnippet(text) + '.txt';
+    var prefix = stampPrefix() + state.device + '_';
+    var attempt = 0;
+    els.sendTextBtn.disabled = true;
+
+    fileToBase64(blob).then(function (b64) {
+      function tryPut(name) {
+        return gh('/repos/' + OWNER + '/' + REPO + '/contents/' + INBOX + '/' + encodeURIComponent(name), 'PUT', {
+          message: 'web text: ' + name,
+          content: b64,
+          branch: BRANCH
+        }).then(function () { return name; });
+      }
+      function retryLoop(current) {
+        return tryPut(current).catch(function (err) {
+          if (err && err.status === 422 && attempt < MAX_RETRY) {
+            attempt++;
+            return retryLoop(suffixName(prefix + base, attempt));
+          }
+          throw err;
+        });
+      }
+      return retryLoop(prefix + base);
+    }).then(function (finalName) {
+      els.textInput.value = '';
+      updateTextCount();
+      toast('文字已发送：' + displayName(finalName), 'ok');
+      return refreshFiles(true);
+    }).catch(function (err) {
+      toast(formatError(err), 'err');
+    }).then(function () {
+      els.sendTextBtn.disabled = false;
+    });
+  }
+
+  function fetchRawText(name) {
+    var url = API + '/repos/' + OWNER + '/' + REPO + '/contents/' + INBOX + '/' +
+      encodeURIComponent(name) + '?ref=' + BRANCH;
+    return fetch(url, {
+      headers: authHeaders({ 'Accept': 'application/vnd.github.raw' }),
+      cache: 'no-store'
+    }).then(function (res) {
+      if (!res.ok) return readError(res).then(function (err) { throw err; });
+      return res.text();
+    });
+  }
+
+  function copyToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(text);
+    }
+    return new Promise(function (resolve, reject) {
+      var area = document.createElement('textarea');
+      area.value = text;
+      area.setAttribute('readonly', 'readonly');
+      area.style.position = 'fixed';
+      area.style.opacity = '0';
+      document.body.appendChild(area);
+      area.select();
+      try {
+        if (document.execCommand('copy')) { resolve(); } else { reject(new Error('浏览器不允许复制')); }
+      } catch (e) {
+        reject(e);
+      } finally {
+        document.body.removeChild(area);
+      }
+    });
+  }
+
+  function copyTextFile(f) {
+    fetchRawText(f.name).then(function (text) {
+      return copyToClipboard(text).then(function () {
+        toast('已复制：' + text.length + ' 个字', 'ok');
+      });
+    }).catch(function (err) {
+      toast('复制失败：' + formatError(err), 'err');
+    });
+  }
+
+  var viewerText = '';
+
+  function openViewer(f) {
+    els.viewer.hidden = false;
+    els.viewerTitle.textContent = displayName(f.name);
+    els.viewerBody.textContent = '读取中…';
+    viewerText = '';
+    fetchRawText(f.name).then(function (text) {
+      viewerText = text;
+      els.viewerBody.textContent = text;
+    }).catch(function (err) {
+      els.viewerBody.textContent = formatError(err);
+    });
+  }
+
+  function closeViewer() {
+    els.viewer.hidden = true;
+    els.viewerBody.textContent = '';
+    viewerText = '';
+  }
+
+  function copyViewerContent() {
+    if (!viewerText) { return; }
+    copyToClipboard(viewerText).then(function () {
+      toast('已复制：' + viewerText.length + ' 个字', 'ok');
+    }).catch(function (err) {
+      toast('复制失败：' + (err && err.message ? err.message : '浏览器不允许'), 'err');
     });
   }
 

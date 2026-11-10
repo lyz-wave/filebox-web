@@ -163,6 +163,7 @@ cd "$HOME/filebox" && chmod +x send.sh recv.sh clean.sh
 | 发送整个文件夹 | ` .\send.ps1 .\照片目录` | ` ./send.sh ./照片目录` |
 | 自定义提交说明 | ` .\send.ps1 .\文件 -Message "说明"` | ` ./send.sh ./文件 --message "说明"` |
 | 只提交本地不推送 | ` .\send.ps1 .\文件 -NoPush` | ` ./send.sh ./文件 --no-push` |
+| 发送文字 / 网址 / 剪贴板 | ` .\text.ps1 "文字"` | ` ./text.sh "文字"` |
 | 接收（列出新文件） | ` .\recv.ps1` | ` ./recv.sh` |
 | 接收并另存一份 | ` .\recv.ps1 -OutDir D:\下载` | ` ./recv.sh --out ~/Downloads` |
 | 清理 7 天前文件 | ` .\clean.ps1 -Days 7 -DryRun` | ` ./clean.sh --days 7 --dry-run` |
@@ -181,7 +182,8 @@ cd "$HOME/filebox" && chmod +x send.sh recv.sh clean.sh
    - Repository access：Only select repositories → `lyz-wave/filebox`
    - Repository permissions：**Contents = Read and write**（其余不用给）
 3. 粘贴令牌 + 设备名（如 `ipad`），点「保存并连接」；
-4. 之后点选或拖文件就能上传，列表里可下载、删除；令牌只存在本机浏览器，随时可在 GitHub 设置里吊销。
+4. 页面顶部还有「发送文字 / 剪贴板」框，粘贴文字点发送即可；列表里 💬 条目点「查看」看全文、点「复制」进剪贴板；
+5. 拖文件或点选上传，列表里可下载、删除；令牌只存在本机浏览器，随时可在 GitHub 设置里吊销。
 
 ### 4.2 GitHub 手机 App / 浏览器（应急）
 

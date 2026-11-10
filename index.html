@@ -73,6 +73,19 @@
       <button class="btn ghost" type="button" id="refreshBtn">刷新</button>
     </div>
 
+    <div class="card textcard">
+      <div class="card-head">
+        <h3>发送文字 / 剪贴板</h3>
+        <span class="text-count" id="textCount">0 字</span>
+      </div>
+      <textarea id="textInput" rows="3" placeholder="粘贴一段文字、网址、口令、验证码……（Ctrl+Enter 发送）"></textarea>
+      <div class="text-actions">
+        <button class="btn primary" type="button" id="sendTextBtn">发送文字</button>
+        <button class="btn ghost small" type="button" id="clearTextBtn">清空</button>
+        <span class="muted">会保存成 inbox 里的 .txt 文件，另一台设备打开网页或运行 recv 就能看到</span>
+      </div>
+    </div>
+
     <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="选择要上传的文件">
       <input type="file" id="fileInput" multiple hidden>
       <div class="dropzone-inner">
@@ -98,7 +111,7 @@
       </div>
       <div class="empty" id="emptyState" hidden>
         <p>还没有文件。</p>
-        <p class="muted">在电脑上运行 <code>.\send.ps1 文件名</code>，或把文件拖到上面的方框。</p>
+        <p class="muted">在电脑上运行 <code>.\send.ps1 文件名</code> / <code>.\text.ps1 文字</code>，或把文件拖到上面的方框。</p>
       </div>
       <ul class="file-list" id="fileList"></ul>
     </div>
@@ -119,6 +132,18 @@
   <span>filebox · 数据存在你自己的私有仓库里</span>
   <a href="https://github.com/lyz-wave/filebox" target="_blank" rel="noreferrer">github.com/lyz-wave/filebox</a>
 </footer>
+
+<div class="viewer" id="viewer" hidden>
+  <div class="viewer-panel" role="dialog" aria-modal="true" aria-labelledby="viewerTitle">
+    <div class="viewer-head">
+      <strong id="viewerTitle">文字</strong>
+      <span class="spacer"></span>
+      <button class="btn" type="button" id="viewerCopy">复制</button>
+      <button class="btn ghost" type="button" id="viewerClose">关闭</button>
+    </div>
+    <pre class="viewer-body" id="viewerBody"></pre>
+  </div>
+</div>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
