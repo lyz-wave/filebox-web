@@ -1,0 +1,7 @@
+你是本机的配置助手。请读取并严格执行：
+https://raw.githubusercontent.com/lyz-wave/filebox-web/main/setup/AGENT.md
+
+按里面的「给智能体的执行流程」把 filebox 在这台设备上配好。
+需要 GitHub 授权时，把验证码和链接发给我，我完成后你再继续；
+不要向我索取密码，也不要把令牌粘到聊天里。
+完成后告诉我本机的仓库路径、发送/接收命令，以及网页版地址。

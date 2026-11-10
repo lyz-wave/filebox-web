@@ -1,0 +1,44 @@
+{
+  "name": "filebox",
+  "version": "1.1.0",
+  "purpose": "私有 GitHub 仓库作为设备间文件投递箱；网页版 + git 脚本共用 inbox/",
+  "doc": "https://raw.githubusercontent.com/lyz-wave/filebox-web/main/setup/AGENT.md",
+  "page": "https://lyz-wave.github.io/filebox-web/",
+  "repos": {
+    "data": "https://github.com/lyz-wave/filebox",
+    "web": "https://github.com/lyz-wave/filebox-web"
+  },
+  "bootstrap": {
+    "windows": "https://raw.githubusercontent.com/lyz-wave/filebox-web/main/setup/bootstrap.ps1",
+    "macos_linux": "https://raw.githubusercontent.com/lyz-wave/filebox-web/main/setup/bootstrap.sh"
+  },
+  "windows_command": "powershell -NoProfile -ExecutionPolicy Bypass -File bootstrap.ps1",
+  "unix_command": "bash bootstrap.sh",
+  "default_repo_dir": {
+    "windows": "%USERPROFILE%\\filebox",
+    "unix": "~/filebox"
+  },
+  "verify": [
+    "git --version",
+    "gh auth status",
+    "git -C <repo> rev-parse --is-inside-work-tree",
+    "recv script prints 已是最新 / lists files",
+    "page https://lyz-wave.github.io/filebox-web/ returns 200"
+  ],
+  "limits": {
+    "git_single_file_mb": 100,
+    "git_warn_mb": 50,
+    "web_hard_mb": 50,
+    "web_suggested_mb": 25,
+    "release_asset_mb": 2048
+  },
+  "file_naming": "<yyyymmdd-hhmmss>_<device>_<original-name>",
+  "web_token": {
+    "type": "fine-grained personal access token",
+    "owner": "lyz-wave",
+    "repo": "lyz-wave/filebox",
+    "permissions": {
+      "Contents": "Read and write"
+    }
+  }
+}

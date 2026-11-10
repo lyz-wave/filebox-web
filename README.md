@@ -16,6 +16,34 @@ filebox 的浏览器界面：**拖拽上传、列表、下载、删除**，数�
 
 ![手机端](docs/mobile.png)
 
+## 在其他设备上启动（推荐让智能体执行）
+
+把这句话复制给那台设备上的智能体：
+
+> 你是本机的配置助手。请读取 https://raw.githubusercontent.com/lyz-wave/filebox-web/main/setup/AGENT.md ，严格按「给智能体的执行流程」把 filebox 配置好；需要 GitHub 授权时把验证码和链接发给我，我完成后再继续。
+
+| 文件 | 用途 |
+|---|---|
+| `setup/AGENT.md` | 完整启动文档：智能体流程、手动步骤、验收清单、排障 |
+| `setup/PROMPT.txt` | 上面那句话的纯文本版 |
+| `setup/bootstrap.ps1` | Windows 一键脚本（装 Git / gh、登录、clone、冒烟测试） |
+| `setup/bootstrap.sh` | macOS / Linux 一键脚本 |
+| `setup/manifest.json` | 机器可读清单（地址、限制、验收命令） |
+
+一键命令（脚本下载到本机后运行）：
+
+```powershell
+# Windows
+powershell -NoProfile -ExecutionPolicy Bypass -File .\bootstrap.ps1
+```
+
+```bash
+# macOS / Linux
+bash ./bootstrap.sh
+```
+
+脚本唯一需要人工的是 GitHub 登录授权：它会打印 8 位验证码和 https://github.com/login/device 链接，浏览器里点一次 Authorize 即可；已经登录过的设备会自动跳过。
+
 ## 第一次使用
 
 1. 打开页面，点右上角「令牌设置」；
