@@ -199,6 +199,7 @@ else
   git clone "$REPO_URL" "$REPO_DIR"
 fi
 ( cd "$REPO_DIR" && git config core.autocrlf false && git config core.quotepath false && git config pull.rebase true )
+chmod +x "$REPO_DIR/send.sh" "$REPO_DIR/recv.sh" "$REPO_DIR/clean.sh" "$REPO_DIR/text.sh" 2>/dev/null || true
 echo "[OK] 仓库: $REPO_DIR"
 
 for f in send.ps1 recv.ps1 clean.ps1 send.sh recv.sh clean.sh; do
