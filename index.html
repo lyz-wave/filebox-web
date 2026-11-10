@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src data:; connect-src https://api.github.com; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
+<title>filebox · 网页投递箱</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%22.9em%22%20font-size%3D%2290%22%3E%F0%9F%93%A6%3C%2Ftext%3E%3C%2Fsvg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <div class="brand">
+      <span class="brand-icon" aria-hidden="true">📦</span>
+      <div class="brand-text">
+        <strong>filebox</strong>
+        <span>浏览器投递箱 · 文件存放在私有仓库</span>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <a class="btn ghost" href="https://github.com/lyz-wave/filebox" target="_blank" rel="noreferrer">打开仓库</a>
+      <button class="btn ghost" type="button" id="settingsBtn">令牌设置</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="card setup" id="setupCard" hidden>
+    <h2>连接私有仓库</h2>
+    <p class="muted">这个网页只是界面，本身托管在公开的 GitHub Pages 上；你的文件只存在私有仓库 <code>lyz-wave/filebox</code> 的 <code>inbox/</code> 里。填一个只授权该仓库的令牌，网页才能读、写它。</p>
+
+    <details class="howto">
+      <summary>怎么生成令牌（大约 1 分钟）</summary>
+      <ol>
+        <li>打开 <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noreferrer">GitHub → 新建 Fine-grained token</a>；</li>
+        <li>Resource owner 选 <strong>lyz-wave</strong>，Repository access 选 <strong>Only select repositories</strong>，并选中 <code>lyz-wave/filebox</code>；</li>
+        <li>Repository permissions 里把 <strong>Contents</strong> 改成 <strong>Read and write</strong>，其它保持默认；</li>
+        <li>点击 Generate token，复制生成的 <code>github_pat_...</code> 粘贴到下面的输入框。</li>
+      </ol>
+      <p class="muted">也可以用 classic token：<a href="https://github.com/settings/tokens/new?scopes=repo&amp;description=filebox" target="_blank" rel="noreferrer">生成 repo 权限的 classic token</a>（权限范围更大，能用但不如 fine-grained 干净）。</p>
+    </details>
+
+    <label class="field">
+      <span>令牌</span>
+      <input id="tokenInput" type="password" placeholder="github_pat_..." autocomplete="off" spellcheck="false">
+    </label>
+
+    <label class="field">
+      <span>这台设备的名称 <em>（会写进文件名，只用字母、数字、短横线）</em></span>
+      <input id="deviceInput" type="text" maxlength="24" placeholder="ipad / win / phone" autocomplete="off">
+    </label>
+
+    <label class="checkline">
+      <input id="rememberInput" type="checkbox" checked>
+      <span>在这台浏览器里记住令牌（只保存在本机 localStorage）</span>
+    </label>
+
+    <div class="setup-actions">
+      <button class="btn primary" type="button" id="connectBtn">保存并连接</button>
+      <button class="btn ghost" type="button" id="clearBtn">清除本地令牌</button>
+      <span class="error" id="setupError" role="status" hidden></span>
+    </div>
+  </section>
+
+  <section id="mainPanel" hidden>
+    <div class="toolbar card">
+      <span class="pill">已连接 · <code>lyz-wave/filebox</code></span>
+      <span class="pill subtle" id="devicePill">本机标签：—</span>
+      <span class="spacer"></span>
+      <input id="searchInput" class="search" type="search" placeholder="搜索文件…" autocomplete="off">
+      <button class="btn ghost" type="button" id="refreshBtn">刷新</button>
+    </div>
+
+    <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="选择要上传的文件">
+      <input type="file" id="fileInput" multiple hidden>
+      <div class="dropzone-inner">
+        <div class="dropzone-icon" aria-hidden="true">⬆</div>
+        <p class="dropzone-title">把文件拖到这里，或点击选择</p>
+        <p class="dropzone-hint">支持多选；单文件建议 25MB 以内，上传完成后会出现在下面的列表</p>
+      </div>
+      <div class="dropzone-active" aria-hidden="true">松手即上传</div>
+    </div>
+
+    <div class="card queue" id="queueCard" hidden>
+      <div class="card-head">
+        <h3>上传队列</h3>
+        <button class="btn ghost small" type="button" id="clearQueueBtn">清空已完成</button>
+      </div>
+      <ul class="queue-list" id="queueList"></ul>
+    </div>
+
+    <div class="card files">
+      <div class="card-head">
+        <h3>inbox <span class="count" id="fileCount"></span></h3>
+        <a class="small link" href="https://github.com/lyz-wave/filebox/tree/main/inbox" target="_blank" rel="noreferrer">在 GitHub 上查看</a>
+      </div>
+      <div class="empty" id="emptyState" hidden>
+        <p>还没有文件。</p>
+        <p class="muted">在电脑上运行 <code>.\send.ps1 文件名</code>，或把文件拖到上面的方框。</p>
+      </div>
+      <ul class="file-list" id="fileList"></ul>
+    </div>
+  </section>
+
+  <section class="card notes">
+    <h3>这个小站是怎么工作的</h3>
+    <ul>
+      <li>网页只是界面（托管在 GitHub Pages），文件写进你的私有仓库 <code>lyz-wave/filebox</code>；</li>
+      <li>所有读写都直接请求 <code>api.github.com</code>，令牌只在本浏览器和 GitHub 之间使用，不会发给第三方站点；</li>
+      <li>电脑端仍然可以用 <code>send.ps1 / recv.ps1</code>，两边共用同一个 <code>inbox/</code>；</li>
+      <li>网页上传受浏览器内存限制，几十 MB 的文件请用电脑脚本或 Release。</li>
+    </ul>
+  </section>
+</main>
+
+<footer class="wrap footer">
+  <span>filebox · 数据存在你自己的私有仓库里</span>
+  <a href="https://github.com/lyz-wave/filebox" target="_blank" rel="noreferrer">github.com/lyz-wave/filebox</a>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>
